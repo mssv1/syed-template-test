@@ -1,0 +1,68 @@
+name: 'Rover'
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+    - "main"
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  rover:
+    name: 'Rover'
+    runs-on: ubuntu-latest
+    environment: development
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+    
+    - name: Checkout
+      uses: actions/checkout@v3
+      
+    # Install the latest version of Terraform CLI and configure the Terraform CLI configuration file with a Terraform Cloud user API token
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v1
+      with:
+        cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+
+    # Initialize a new or existing Terraform working directory by creating initial files, loading any remote state, downloading modules, etc.
+    - name: Terraform Init
+      run: terraform init
+
+    # Checks that all Terraform configuration files adhere to a canonical format
+    - name: Terraform Format
+      run: terraform fmt -check
+
+    # Aws credentials to be picked up from the secrets in github actions
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: eu-west-2
+
+    - name: Terraform Plan
+      run:  terraform plan -out tfplan -input=false
+
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: Rover Terraform Action
+      uses: Official-James/rover-terraform-action@1.0.1
+      env:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+
+    - name: Upload rover Artifact
+      uses: actions/upload-artifact@v2.2.4
+      with:
+        name: rover
+        path: "./rover.zip"
+      
+
